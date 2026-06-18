@@ -1,0 +1,51 @@
+{
+    "name": "abigah/send-it",
+    "type": "statamic-addon",
+    "description": "Send Statamic entries out through pluggable channels — starting with Mailchimp campaigns.",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Sheldon Kotyk",
+            "email": "sheldon.kotyk@p2c.com",
+            "role": "Developer"
+        }
+    ],
+    "require": {
+        "php": "^8.2",
+        "laravel/framework": "^10.0 || ^11.0 || ^12.0",
+        "statamic/cms": "^4.0 || ^5.0 || ^6.0"
+    },
+    "require-dev": {
+        "orchestra/testbench": "^8.0 || ^9.0",
+        "phpunit/phpunit": "^10.0 || ^11.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Abigah\\SendIt\\": "src"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Abigah\\SendIt\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "statamic": {
+            "name": "Send It",
+            "description": "Send Statamic entries out through pluggable channels — starting with Mailchimp campaigns."
+        },
+        "laravel": {
+            "providers": [
+                "Abigah\\SendIt\\ServiceProvider"
+            ]
+        }
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "pixelfear/composer-dist-plugin": true
+        }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}

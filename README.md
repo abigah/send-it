@@ -1,0 +1,77 @@
+# Send It
+
+A Statamic addon for sending entries out through pluggable **channels**. Pick
+an entry in the control panel, run the **Send It** action, choose a channel,
+and go.
+
+The first channel creates a **Mailchimp** campaign from the entry. A built-in
+**mailer** channel sends the entry through Laravel's configured mailer so you
+can test-send before committing to a real campaign. The channel layer is
+designed so additional providers — Postmark lists, SMS, WhatsApp — can be added
+without touching the action.
+
+## Installation
+
+```bash
+composer require abigah/send-it
+```
+
+Publish the config (optional):
+
+```bash
+php artisan vendor:publish --tag=send-it-config
+```
+
+## Configuration
+
+Set the relevant environment variables:
+
+```dotenv
+# Default channel used when none is chosen
+SEND_IT_CHANNEL=mailchimp
+
+# Mailchimp
+SEND_IT_MAILCHIMP_API_KEY=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx-us21
+SEND_IT_MAILCHIMP_AUDIENCE_ID=abc123
+SEND_IT_MAILCHIMP_FROM_NAME="Abigah"
+SEND_IT_MAILCHIMP_REPLY_TO=hello@abigah.com
+# Create drafts by default; flip to send immediately
+SEND_IT_MAILCHIMP_SEND_IMMEDIATELY=false
+
+# Mailer (test send) — uses your app's default mailer
+SEND_IT_MAILER_TO=you@example.com
+```
+
+The Mailchimp server prefix (e.g. `us21`) is derived from the API key suffix
+automatically; override it with `SEND_IT_MAILCHIMP_SERVER_PREFIX` if needed.
+
+By default the campaign/email body comes from the entry's `content` field
+(its augmented HTML). Change the source field per channel via
+`config/send-it.php`.
+
+## Usage
+
+1. In the control panel, select one or more entries in a collection listing.
+2. Run the **Send It** action.
+3. Choose a channel (Mailchimp or the mailer test send), optionally set a
+   subject, and confirm.
+
+Mailchimp campaigns are created as **drafts** by default so you can review them
+before sending — toggle *Send immediately* to send right away.
+
+## Adding a channel
+
+Implement `Abigah\SendIt\Contracts\Channel` and register it from any service
+provider:
+
+```php
+app(\Abigah\SendIt\Channels\ChannelManager::class)
+    ->extend('postmark', fn ($app) => new PostmarkChannel(config('send-it.channels.postmark')));
+```
+
+Configured channels automatically appear in the **Send It** action's channel
+picker.
+
+## License
+
+MIT
