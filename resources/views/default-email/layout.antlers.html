@@ -45,6 +45,15 @@
                         </td>
                     </tr>
 
+                    {{# Personalised greeting #}}
+                    {{ if greeting }}
+                    <tr>
+                        <td style="padding:24px 32px 0 32px; font-family:Arial, Helvetica, sans-serif; font-size:16px; line-height:1.6; color:#333333;">
+                            {{ greeting }}
+                        </td>
+                    </tr>
+                    {{ /if }}
+
                     {{# Article header: title + byline #}}
                     {{ if title || authors || date }}
                     <tr>

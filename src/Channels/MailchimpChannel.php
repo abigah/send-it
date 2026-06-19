@@ -7,6 +7,7 @@ use Abigah\SendIt\Exceptions\SendItException;
 use Abigah\SendIt\Mailchimp\MailchimpClient;
 use Abigah\SendIt\Support\EmailRenderer;
 use Abigah\SendIt\Support\EntryContent;
+use Abigah\SendIt\Support\Greeting;
 use Abigah\SendIt\Support\SendResult;
 use Illuminate\Http\Client\RequestException;
 use Statamic\Contracts\Entries\Entry;
@@ -75,6 +76,11 @@ class MailchimpChannel implements Channel
         }
 
         $html = $this->renderer->render($subject, $html, array_merge(EntryContent::articleMeta($entry), [
+            // Personalised greeting via the *|FNAME|* merge tag.
+            'greeting' => Greeting::forMailchimp(
+                config('send-it.email.greeting'),
+                config('send-it.email.greeting_fallback', 'friend'),
+            ),
             // Mailchimp requires these merge tags in campaign content; it
             // replaces them with the recipient's real links on send.
             'unsubscribe_url' => '*|UNSUB|*',

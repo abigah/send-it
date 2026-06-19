@@ -36,6 +36,7 @@ class EmailRenderer
             'title' => '',
             'authors' => '',
             'date' => null,
+            'greeting' => null,
             'logo_url' => $this->config['logo_url'] ?? null,
             'logo_width' => $this->config['logo_width'] ?? 160,
             'site_name' => $this->config['site_name'] ?? config('app.name'),

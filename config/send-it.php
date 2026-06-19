@@ -41,6 +41,12 @@ return [
         'author_field' => env('SEND_IT_EMAIL_AUTHOR_FIELD', 'author'),
         'date_format' => env('SEND_IT_EMAIL_DATE_FORMAT', 'F j, Y'),
 
+        // Personalised greeting. {first_name} is replaced per recipient: the
+        // Mailchimp channel uses the *|FNAME|* merge tag, the mailer channel
+        // resolves the recipient's name. Set greeting to null to disable.
+        'greeting' => env('SEND_IT_EMAIL_GREETING', 'Hi {first_name},'),
+        'greeting_fallback' => env('SEND_IT_EMAIL_GREETING_FALLBACK', 'friend'),
+
         // Footer. "company" is shown in the copyright line; "site_name" is
         // used as a fallback. The unsubscribe / update-preferences links below
         // are used by the mailer channel; the Mailchimp channel replaces them

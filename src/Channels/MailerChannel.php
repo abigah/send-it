@@ -6,6 +6,7 @@ use Abigah\SendIt\Contracts\Channel;
 use Abigah\SendIt\Exceptions\SendItException;
 use Abigah\SendIt\Support\EmailRenderer;
 use Abigah\SendIt\Support\EntryContent;
+use Abigah\SendIt\Support\Greeting;
 use Abigah\SendIt\Support\SendResult;
 use Illuminate\Mail\Message;
 use Illuminate\Support\Facades\Mail;
@@ -68,7 +69,16 @@ class MailerChannel implements Channel
             throw new SendItException("Entry [{$entry->id()}] has no content to send.");
         }
 
-        $html = $this->renderer->render($subject, $html, EntryContent::articleMeta($entry));
+        $greeting = Greeting::forName(
+            config('send-it.email.greeting'),
+            $this->recipientName($recipients[0] ?? null),
+            config('send-it.email.greeting_fallback', 'friend'),
+        );
+
+        $html = $this->renderer->render($subject, $html, array_merge(
+            EntryContent::articleMeta($entry),
+            ['greeting' => $greeting],
+        ));
 
         Mail::html($html, function (Message $message) use ($recipients, $subject) {
             $message->to($recipients)->subject($subject);
@@ -98,5 +108,17 @@ class MailerChannel implements Channel
         }
 
         return array_values(array_filter(array_map('trim', explode(',', $value))));
+    }
+
+    /**
+     * Resolve the recipient's name from a matching Statamic user, if any.
+     */
+    protected function recipientName(?string $email): ?string
+    {
+        if (empty($email)) {
+            return null;
+        }
+
+        return \Statamic\Facades\User::findByEmail($email)?->name();
     }
 }
