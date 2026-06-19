@@ -74,7 +74,12 @@ class MailchimpChannel implements Channel
             throw new SendItException("Entry [{$entry->id()}] has no content to send.");
         }
 
-        $html = $this->renderer->render($subject, $html, EntryContent::articleMeta($entry));
+        $html = $this->renderer->render($subject, $html, array_merge(EntryContent::articleMeta($entry), [
+            // Mailchimp requires these merge tags in campaign content; it
+            // replaces them with the recipient's real links on send.
+            'unsubscribe_url' => '*|UNSUB|*',
+            'update_preferences_url' => '*|UPDATE_PROFILE|*',
+        ]));
 
         try {
             $campaign = $this->client->createCampaign($audienceId, [

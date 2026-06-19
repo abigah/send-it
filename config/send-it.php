@@ -41,10 +41,15 @@ return [
         'author_field' => env('SEND_IT_EMAIL_AUTHOR_FIELD', 'author'),
         'date_format' => env('SEND_IT_EMAIL_DATE_FORMAT', 'F j, Y'),
 
-        // Footer.
+        // Footer. "company" is shown in the copyright line; "site_name" is
+        // used as a fallback. The unsubscribe / update-preferences links below
+        // are used by the mailer channel; the Mailchimp channel replaces them
+        // with the required *|UNSUB|* and *|UPDATE_PROFILE|* merge tags.
+        'company' => env('SEND_IT_EMAIL_COMPANY', env('APP_NAME')),
         'footer_text' => env('SEND_IT_EMAIL_FOOTER_TEXT'),
         'footer_address' => env('SEND_IT_EMAIL_FOOTER_ADDRESS'),
         'unsubscribe_url' => env('SEND_IT_EMAIL_UNSUBSCRIBE_URL', '#'),
+        'update_preferences_url' => env('SEND_IT_EMAIL_UPDATE_PREFERENCES_URL'),
     ],
 
     /*
