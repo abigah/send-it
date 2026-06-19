@@ -74,7 +74,7 @@ class MailchimpChannel implements Channel
             throw new SendItException("Entry [{$entry->id()}] has no content to send.");
         }
 
-        $html = $this->renderer->render($subject, $html);
+        $html = $this->renderer->render($subject, $html, EntryContent::articleMeta($entry));
 
         try {
             $campaign = $this->client->createCampaign($audienceId, [

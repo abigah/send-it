@@ -68,7 +68,7 @@ class MailerChannel implements Channel
             throw new SendItException("Entry [{$entry->id()}] has no content to send.");
         }
 
-        $html = $this->renderer->render($subject, $html);
+        $html = $this->renderer->render($subject, $html, EntryContent::articleMeta($entry));
 
         Mail::html($html, function (Message $message) use ($recipients, $subject) {
             $message->to($recipients)->subject($subject);

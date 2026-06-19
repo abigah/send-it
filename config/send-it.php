@@ -36,6 +36,11 @@ return [
         'site_name' => env('SEND_IT_EMAIL_SITE_NAME', env('APP_NAME')),
         'site_url' => env('SEND_IT_EMAIL_SITE_URL', env('APP_URL')),
 
+        // Article header: the entry field holding the author(s) and the date
+        // format shown in the byline.
+        'author_field' => env('SEND_IT_EMAIL_AUTHOR_FIELD', 'author'),
+        'date_format' => env('SEND_IT_EMAIL_DATE_FORMAT', 'F j, Y'),
+
         // Footer.
         'footer_text' => env('SEND_IT_EMAIL_FOOTER_TEXT'),
         'footer_address' => env('SEND_IT_EMAIL_FOOTER_ADDRESS'),
