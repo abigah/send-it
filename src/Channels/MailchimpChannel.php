@@ -5,6 +5,7 @@ namespace Abigah\SendIt\Channels;
 use Abigah\SendIt\Contracts\Channel;
 use Abigah\SendIt\Exceptions\SendItException;
 use Abigah\SendIt\Mailchimp\MailchimpClient;
+use Abigah\SendIt\Support\EmailRenderer;
 use Abigah\SendIt\Support\EntryContent;
 use Abigah\SendIt\Support\SendResult;
 use Illuminate\Http\Client\RequestException;
@@ -18,6 +19,7 @@ class MailchimpChannel implements Channel
     public function __construct(
         protected array $config,
         protected MailchimpClient $client,
+        protected EmailRenderer $renderer,
     ) {
     }
 
@@ -71,6 +73,8 @@ class MailchimpChannel implements Channel
         if ($html === '') {
             throw new SendItException("Entry [{$entry->id()}] has no content to send.");
         }
+
+        $html = $this->renderer->render($subject, $html);
 
         try {
             $campaign = $this->client->createCampaign($audienceId, [

@@ -59,6 +59,24 @@ By default the campaign/email body comes from the entry's `content` field
 Mailchimp campaigns are created as **drafts** by default so you can review them
 before sending — toggle *Send immediately* to send right away.
 
+## Email layout
+
+Channel content is wrapped in an Antlers email layout before sending — a
+responsive, email-client-safe shell with the logo centered at the top and a
+footer (copyright, address, unsubscribe link). Configure it under the `email`
+key in `config/send-it.php` (logo URL/width, site name, footer text/address,
+unsubscribe URL).
+
+Customise the markup by publishing the view:
+
+```bash
+php artisan vendor:publish --tag=send-it-views
+# resources/views/vendor/send-it/default-email/layout.antlers.html
+```
+
+Point `email.layout` at your own view, or set it to `null` to send content
+unwrapped.
+
 ## Adding a channel
 
 Implement `Abigah\SendIt\Contracts\Channel` and register it from any service

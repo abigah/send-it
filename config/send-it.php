@@ -17,6 +17,33 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Email Layout
+    |--------------------------------------------------------------------------
+    |
+    | Channel content is wrapped in this Antlers view before sending. Publish
+    | the view to resources/views/vendor/send-it/ to customise it, or point
+    | "layout" at your own view. Set "layout" to null to send content as-is.
+    |
+    */
+
+    'email' => [
+        'layout' => 'send-it::default-email.layout',
+
+        // Absolute URL to the logo shown centered at the top of the email.
+        'logo_url' => env('SEND_IT_EMAIL_LOGO_URL'),
+        'logo_width' => env('SEND_IT_EMAIL_LOGO_WIDTH', 160),
+
+        'site_name' => env('SEND_IT_EMAIL_SITE_NAME', env('APP_NAME')),
+        'site_url' => env('SEND_IT_EMAIL_SITE_URL', env('APP_URL')),
+
+        // Footer.
+        'footer_text' => env('SEND_IT_EMAIL_FOOTER_TEXT'),
+        'footer_address' => env('SEND_IT_EMAIL_FOOTER_ADDRESS'),
+        'unsubscribe_url' => env('SEND_IT_EMAIL_UNSUBSCRIBE_URL', '#'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Channels
     |--------------------------------------------------------------------------
     |

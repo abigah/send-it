@@ -4,6 +4,7 @@ namespace Abigah\SendIt\Channels;
 
 use Abigah\SendIt\Contracts\Channel;
 use Abigah\SendIt\Exceptions\SendItException;
+use Abigah\SendIt\Support\EmailRenderer;
 use Abigah\SendIt\Support\EntryContent;
 use Abigah\SendIt\Support\SendResult;
 use Illuminate\Mail\Message;
@@ -21,6 +22,7 @@ class MailerChannel implements Channel
      */
     public function __construct(
         protected array $config,
+        protected EmailRenderer $renderer,
     ) {
     }
 
@@ -65,6 +67,8 @@ class MailerChannel implements Channel
         if ($html === '') {
             throw new SendItException("Entry [{$entry->id()}] has no content to send.");
         }
+
+        $html = $this->renderer->render($subject, $html);
 
         Mail::html($html, function (Message $message) use ($recipients, $subject) {
             $message->to($recipients)->subject($subject);
