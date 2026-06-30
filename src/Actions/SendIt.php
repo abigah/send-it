@@ -38,7 +38,7 @@ class SendIt extends Action
         return 'Send the selected entry?|Send the {count} selected entries?';
     }
 
-    public function fields()
+    public function fieldItems()
     {
         $channels = $this->manager()->available();
 
