@@ -60,13 +60,32 @@ For Mailchimp, choose a **Delivery** mode:
 
 - **Save as draft** (default) — create the campaign in Mailchimp for review.
 - **Send immediately** — send as soon as the action runs.
-- **Schedule for later** — pick a date and time and Mailchimp sends it then.
+- **Schedule for later** — pick a date and time; the send happens then.
 
-The schedule field is shown in your **own timezone**, but the time is stored and
-sent in the **site timezone** (`config('app.timezone')`); Mailchimp only accepts
-quarter-hour times, so it's rounded up to the next 15 minutes. The
+The schedule field is shown in **your own timezone**, but the time is stored and
+sent in the **site timezone** (`config('app.timezone')`). The
 `SEND_IT_MAILCHIMP_SEND_IMMEDIATELY` env var just sets which mode is selected by
 default.
+
+### How scheduling works
+
+Scheduling runs on the Laravel side, not Mailchimp's native scheduler:
+
+- The chosen send is recorded in `storage/app/send-it/scheduled-sends.json`
+  (configurable via `SEND_IT_SCHEDULE_STORE`).
+- The addon registers a `send-it:run-scheduled` command to run **every minute**
+  via Laravel's scheduler. Make sure `schedule:run` is in your cron:
+
+  ```
+  * * * * * cd /path-to-your-project && php artisan schedule:run >> /dev/null 2>&1
+  ```
+
+- When a send is due, the command **publishes the entry** (and, for dated
+  collections that hide future-dated entries, brings the date forward to now so
+  it's live) and then creates and sends the Mailchimp campaign immediately.
+
+Because the campaign is built when the scheduler fires, it always uses the
+entry's latest content.
 
 ## Email layout
 

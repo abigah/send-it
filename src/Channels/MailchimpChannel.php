@@ -5,6 +5,8 @@ namespace Abigah\SendIt\Channels;
 use Abigah\SendIt\Contracts\Channel;
 use Abigah\SendIt\Exceptions\SendItException;
 use Abigah\SendIt\Mailchimp\MailchimpClient;
+use Abigah\SendIt\Scheduling\ScheduledSend;
+use Abigah\SendIt\Scheduling\ScheduleStore;
 use Abigah\SendIt\Support\EmailRenderer;
 use Abigah\SendIt\Support\EntryContent;
 use Abigah\SendIt\Support\Greeting;
@@ -12,6 +14,7 @@ use Abigah\SendIt\Support\ScheduleTime;
 use Abigah\SendIt\Support\SendResult;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Client\RequestException;
+use Illuminate\Support\Str;
 use Statamic\Contracts\Entries\Entry;
 
 class MailchimpChannel implements Channel
@@ -23,6 +26,7 @@ class MailchimpChannel implements Channel
         protected array $config,
         protected MailchimpClient $client,
         protected EmailRenderer $renderer,
+        protected ScheduleStore $store,
     ) {}
 
     public function key(): string
@@ -68,7 +72,7 @@ class MailchimpChannel implements Channel
                 'type' => 'date',
                 'display' => 'Schedule for',
                 'instructions' => 'Shown in your own timezone; stored and sent in the site timezone ('
-                    .(config('app.timezone') ?: 'UTC').'). Mailchimp rounds up to the next 15 minutes.',
+                    .(config('app.timezone') ?: 'UTC').'). The entry is published automatically at this time.',
                 'mode' => 'single',
                 'time_enabled' => true,
                 'validate' => 'required_if:mailchimp_delivery,schedule',
@@ -89,6 +93,12 @@ class MailchimpChannel implements Channel
         }
 
         $subject = $options['subject_line'] ?? EntryContent::title($entry);
+        $delivery = $this->resolveDelivery($options);
+
+        if ($delivery === 'schedule') {
+            return $this->schedule($entry, $subject, $options);
+        }
+
         $html = EntryContent::html($entry, $this->config['content_field'] ?? 'content');
 
         if ($html === '') {
@@ -107,17 +117,6 @@ class MailchimpChannel implements Channel
             'update_preferences_url' => '*|UPDATE_PROFILE|*',
         ]));
 
-        $delivery = $this->resolveDelivery($options);
-
-        // Resolve (and validate) the schedule time before creating anything,
-        // so an invalid time doesn't leave an orphaned draft behind.
-        $scheduleAt = $delivery === 'schedule'
-            ? ScheduleTime::forMailchimp(
-                (string) ($options['mailchimp_schedule_at'] ?? ''),
-                config('app.timezone') ?: 'UTC',
-            )
-            : null;
-
         try {
             $campaign = $this->client->createCampaign($audienceId, [
                 'subject_line' => $subject,
@@ -128,9 +127,7 @@ class MailchimpChannel implements Channel
 
             $this->client->setCampaignContent($campaign['id'], $html);
 
-            if ($delivery === 'schedule') {
-                $this->client->scheduleCampaign($campaign['id'], $scheduleAt);
-            } elseif ($delivery === 'send') {
+            if ($delivery === 'send') {
                 $this->client->sendCampaign($campaign['id']);
             }
         } catch (RequestException $e) {
@@ -143,13 +140,50 @@ class MailchimpChannel implements Channel
 
         return SendResult::success(
             $this->key(),
-            $this->successMessage($delivery, $subject, $scheduleAt),
+            $delivery === 'send'
+                ? "Sent Mailchimp campaign for \"{$subject}\"."
+                : "Created Mailchimp draft campaign for \"{$subject}\".",
             $entry,
-            [
-                'campaign_id' => $campaign['id'],
-                'web_id' => $campaign['web_id'] ?? null,
-                'scheduled_at' => $scheduleAt?->toIso8601String(),
-            ],
+            ['campaign_id' => $campaign['id'], 'web_id' => $campaign['web_id'] ?? null],
+        );
+    }
+
+    /**
+     * Persist the send for the every-minute scheduler to pick up. The actual
+     * campaign is created and sent when send-it:run-scheduled fires, so the
+     * entry's latest content is used and it can be published at that moment.
+     *
+     * @param  array<string, mixed>  $options
+     */
+    protected function schedule(Entry $entry, string $subject, array $options): SendResult
+    {
+        $sendAt = ScheduleTime::resolve(
+            (string) ($options['mailchimp_schedule_at'] ?? ''),
+            config('app.timezone') ?: 'UTC',
+        );
+
+        // Replay as an immediate send when the scheduler runs it.
+        $options['mailchimp_delivery'] = 'send';
+        unset($options['mailchimp_schedule_at']);
+
+        $this->store->add(new ScheduledSend(
+            id: (string) Str::uuid(),
+            entry: $entry->id(),
+            channel: $this->key(),
+            options: $options,
+            sendAt: $sendAt,
+            createdAt: CarbonImmutable::now('UTC'),
+        ));
+
+        return SendResult::success(
+            $this->key(),
+            sprintf(
+                'Scheduled "%s" to send on %s.',
+                $subject,
+                $sendAt->setTimezone(config('app.timezone') ?: 'UTC')->format('M j, Y g:i A T'),
+            ),
+            $entry,
+            ['scheduled_at' => $sendAt->toIso8601String()],
         );
     }
 
@@ -172,19 +206,6 @@ class MailchimpChannel implements Channel
         }
 
         return ($this->config['send_immediately'] ?? false) ? 'send' : 'draft';
-    }
-
-    protected function successMessage(string $delivery, string $subject, ?CarbonImmutable $scheduleAt): string
-    {
-        return match ($delivery) {
-            'schedule' => sprintf(
-                'Scheduled Mailchimp campaign for "%s" at %s.',
-                $subject,
-                $scheduleAt->setTimezone(config('app.timezone') ?: 'UTC')->format('M j, Y g:i A T'),
-            ),
-            'send' => "Sent Mailchimp campaign for \"{$subject}\".",
-            default => "Created Mailchimp draft campaign for \"{$subject}\".",
-        };
     }
 
     protected function errorDetail(RequestException $e): string
