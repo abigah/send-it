@@ -11,6 +11,8 @@ use Statamic\Contracts\Entries\Entry;
 
 class SendIt extends Action
 {
+    protected $icon = 'mail-send-email-attachment-document';
+
     public static function title()
     {
         return __('Send It');
