@@ -51,14 +51,6 @@ class ServiceProvider extends AddonServiceProvider
     {
         $this->loadViewsFrom(__DIR__.'/../resources/views', 'send-it');
 
-        // Process due scheduled sends once a minute (assumes the Laravel
-        // scheduler's `schedule:run` is wired into cron every minute).
-        $this->callAfterResolving(Schedule::class, function (Schedule $schedule) {
-            $schedule->command('send-it:run-scheduled')
-                ->everyMinute()
-                ->withoutOverlapping();
-        });
-
         $this->publishes([
             __DIR__.'/../config/send-it.php' => config_path('send-it.php'),
         ], 'send-it-config');
@@ -66,6 +58,17 @@ class ServiceProvider extends AddonServiceProvider
         $this->publishes([
             __DIR__.'/../resources/views' => resource_path('views/vendor/send-it'),
         ], 'send-it-views');
+    }
+
+    /**
+     * Process due scheduled sends once a minute. Statamic calls this when
+     * running in the console; ensure `schedule:run` is wired into cron.
+     */
+    protected function schedule(Schedule $schedule)
+    {
+        $schedule->command('send-it:run-scheduled')
+            ->everyMinute()
+            ->withoutOverlapping();
     }
 
     /**
