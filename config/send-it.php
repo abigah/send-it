@@ -17,6 +17,21 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Scheduling
+    |--------------------------------------------------------------------------
+    |
+    | Scheduled sends are recorded here and processed by the
+    | `send-it:run-scheduled` command, which the addon registers to run every
+    | minute via Laravel's scheduler. Make sure `schedule:run` is in your cron.
+    |
+    */
+
+    'schedule' => [
+        'store' => env('SEND_IT_SCHEDULE_STORE', storage_path('app/send-it/scheduled-sends.json')),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Email Layout
     |--------------------------------------------------------------------------
     |

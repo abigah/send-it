@@ -3,8 +3,6 @@
 namespace Abigah\SendIt\Mailchimp;
 
 use Abigah\SendIt\Exceptions\SendItException;
-use Carbon\CarbonImmutable;
-use DateTimeInterface;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
@@ -61,19 +59,6 @@ class MailchimpClient
     {
         $this->request()
             ->post("/campaigns/{$campaignId}/actions/send")
-            ->throw();
-    }
-
-    /**
-     * Schedule a campaign to send at the given time. Mailchimp requires the
-     * time in UTC, on a quarter-hour boundary, and in the future.
-     */
-    public function scheduleCampaign(string $campaignId, DateTimeInterface $time): void
-    {
-        $this->request()
-            ->post("/campaigns/{$campaignId}/actions/schedule", [
-                'schedule_time' => CarbonImmutable::instance($time)->utc()->toIso8601String(),
-            ])
             ->throw();
     }
 
