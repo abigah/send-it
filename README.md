@@ -56,8 +56,17 @@ By default the campaign/email body comes from the entry's `content` field
 3. Choose a channel (Mailchimp or the mailer test send), optionally set a
    subject, and confirm.
 
-Mailchimp campaigns are created as **drafts** by default so you can review them
-before sending — toggle *Send immediately* to send right away.
+For Mailchimp, choose a **Delivery** mode:
+
+- **Save as draft** (default) — create the campaign in Mailchimp for review.
+- **Send immediately** — send as soon as the action runs.
+- **Schedule for later** — pick a date and time and Mailchimp sends it then.
+
+The schedule field is shown in your **own timezone**, but the time is stored and
+sent in the **site timezone** (`config('app.timezone')`); Mailchimp only accepts
+quarter-hour times, so it's rounded up to the next 15 minutes. The
+`SEND_IT_MAILCHIMP_SEND_IMMEDIATELY` env var just sets which mode is selected by
+default.
 
 ## Email layout
 
