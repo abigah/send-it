@@ -25,18 +25,52 @@ class MailchimpClient
      * Create a regular campaign and return the API response.
      *
      * @param  array<string, mixed>  $settings  Mailchimp campaign settings.
+     * @param  array<string, mixed>  $segmentOpts  Optional segment_opts to
+     *                                             target a tag/segment within
+     *                                             the audience.
      * @return array<string, mixed>
      */
-    public function createCampaign(string $audienceId, array $settings): array
+    public function createCampaign(string $audienceId, array $settings, array $segmentOpts = []): array
     {
+        $recipients = ['list_id' => $audienceId];
+
+        if ($segmentOpts !== []) {
+            $recipients['segment_opts'] = $segmentOpts;
+        }
+
         return $this->request()
             ->post('/campaigns', [
                 'type' => 'regular',
-                'recipients' => ['list_id' => $audienceId],
+                'recipients' => $recipients,
                 'settings' => array_filter($settings, fn ($value) => $value !== null && $value !== ''),
             ])
             ->throw()
             ->json();
+    }
+
+    /**
+     * List the audience's tags (static segments), newest-friendly for a picker.
+     *
+     * @return array<int, array{id: int, name: string, member_count: int|null}>
+     */
+    public function listTags(string $audienceId): array
+    {
+        $response = $this->request()
+            ->get("/lists/{$audienceId}/segments", [
+                'type' => 'static',
+                'count' => 1000,
+                'fields' => 'segments.id,segments.name,segments.member_count',
+            ])
+            ->throw()
+            ->json();
+
+        return collect($response['segments'] ?? [])
+            ->map(fn (array $segment): array => [
+                'id' => (int) $segment['id'],
+                'name' => (string) $segment['name'],
+                'member_count' => $segment['member_count'] ?? null,
+            ])
+            ->all();
     }
 
     /**

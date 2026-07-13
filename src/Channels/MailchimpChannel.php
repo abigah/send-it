@@ -14,6 +14,7 @@ use Abigah\SendIt\Support\ScheduleTime;
 use Abigah\SendIt\Support\SendResult;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Client\RequestException;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use Statamic\Contracts\Entries\Entry;
 
@@ -64,8 +65,18 @@ class MailchimpChannel implements Channel
                     'send' => 'Send immediately',
                     'schedule' => 'Schedule for later',
                 ],
-                'default' => ($this->config['send_immediately'] ?? false) ? 'send' : 'draft',
-                'clearable' => false,
+                'placeholder' => 'Choose an option…',
+                'clearable' => true,
+                'validate' => 'required',
+                'if' => ['channel' => 'equals mailchimp'],
+            ],
+            'mailchimp_tag' => [
+                'type' => 'select',
+                'display' => 'Tag',
+                'instructions' => 'Send only to subscribers with this tag. Leave blank to send to the whole audience. Tags are listed for the default audience.',
+                'options' => $this->tagOptions(),
+                'clearable' => true,
+                'placeholder' => 'Whole audience',
                 'if' => ['channel' => 'equals mailchimp'],
             ],
             'mailchimp_schedule_at' => [
@@ -123,7 +134,7 @@ class MailchimpChannel implements Channel
                 'title' => EntryContent::title($entry),
                 'from_name' => $this->config['from_name'] ?? null,
                 'reply_to' => $this->config['reply_to'] ?? null,
-            ]);
+            ], $this->segmentOpts($options));
 
             $this->client->setCampaignContent($campaign['id'], $html);
 
@@ -206,6 +217,53 @@ class MailchimpChannel implements Channel
         }
 
         return ($this->config['send_immediately'] ?? false) ? 'send' : 'draft';
+    }
+
+    /**
+     * Build the campaign's segment_opts from the chosen tag, if any.
+     *
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    protected function segmentOpts(array $options): array
+    {
+        $tag = $options['mailchimp_tag'] ?? null;
+
+        return empty($tag) ? [] : ['saved_segment_id' => (int) $tag];
+    }
+
+    /**
+     * Tag options for the send form, keyed by segment id. Cached briefly so we
+     * don't hit the Mailchimp API on every action panel load, and fails soft
+     * to an empty list when the API is unreachable or unconfigured.
+     *
+     * @return array<int|string, string>
+     */
+    protected function tagOptions(): array
+    {
+        $audienceId = $this->config['audience_id'] ?? null;
+
+        if (empty($audienceId)) {
+            return [];
+        }
+
+        try {
+            $tags = Cache::remember(
+                "send-it.mailchimp.tags.{$audienceId}",
+                now()->addMinutes(5),
+                fn () => $this->client->listTags($audienceId),
+            );
+        } catch (\Throwable $e) {
+            return [];
+        }
+
+        return collect($tags)
+            ->mapWithKeys(fn (array $tag): array => [
+                $tag['id'] => $tag['member_count'] !== null
+                    ? "{$tag['name']} ({$tag['member_count']})"
+                    : $tag['name'],
+            ])
+            ->all();
     }
 
     protected function errorDetail(RequestException $e): string
