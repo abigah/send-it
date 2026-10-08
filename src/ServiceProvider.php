@@ -3,11 +3,13 @@
 namespace Abigah\SendIt;
 
 use Abigah\SendIt\Actions\SendIt;
+use Abigah\SendIt\Channels\ApnsChannel;
 use Abigah\SendIt\Channels\ChannelManager;
 use Abigah\SendIt\Channels\MailchimpChannel;
 use Abigah\SendIt\Channels\MailerChannel;
 use Abigah\SendIt\Console\Commands\RunScheduledSends;
 use Abigah\SendIt\Mailchimp\MailchimpClient;
+use Abigah\SendIt\Push\ApnsClient;
 use Abigah\SendIt\Scheduling\ScheduleStore;
 use Abigah\SendIt\Support\EmailRenderer;
 use Illuminate\Console\Scheduling\Schedule;
@@ -38,6 +40,18 @@ class ServiceProvider extends AddonServiceProvider
             );
         });
 
+        $this->app->singleton(ApnsClient::class, function () {
+            $config = config('send-it.channels.apns', []);
+
+            return new ApnsClient(
+                (string) ($config['team_id'] ?? ''),
+                (string) ($config['key_id'] ?? ''),
+                (string) static::apnsPrivateKey($config),
+                (string) ($config['topic'] ?? ''),
+                (int) ($config['concurrency'] ?? 20),
+            );
+        });
+
         $this->app->singleton(ChannelManager::class, function (Container $app) {
             $manager = new ChannelManager($app, config('send-it.default'));
 
@@ -50,6 +64,12 @@ class ServiceProvider extends AddonServiceProvider
     public function bootAddon()
     {
         $this->loadViewsFrom(__DIR__.'/../resources/views', 'send-it');
+
+        $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
+
+        if (config('send-it.channels.apns.enabled') && config('send-it.channels.apns.devices.route')) {
+            $this->loadRoutesFrom(__DIR__.'/../routes/push.php');
+        }
 
         $this->publishes([
             __DIR__.'/../config/send-it.php' => config_path('send-it.php'),
@@ -101,5 +121,40 @@ class ServiceProvider extends AddonServiceProvider
                 $app->make(EmailRenderer::class),
             ));
         }
+
+        if (($channels['apns']['enabled'] ?? false)) {
+            $manager->extend('apns', fn (Container $app) => new ApnsChannel(
+                $channels['apns'],
+                $app->make(ScheduleStore::class),
+                static::apnsPrivateKey($channels['apns']) ? $app->make(ApnsClient::class) : null,
+            ));
+        }
+    }
+
+    /**
+     * The .p8 key from the inline env value (with literal "\n" allowed) or
+     * from the configured file path.
+     *
+     * @param  array<string, mixed>  $config
+     */
+    protected static function apnsPrivateKey(array $config): ?string
+    {
+        if (! empty($config['private_key'])) {
+            return str_replace('\\n', "\n", (string) $config['private_key']);
+        }
+
+        if (! empty($config['private_key_base64'])) {
+            $decoded = base64_decode((string) $config['private_key_base64'], true);
+
+            return $decoded === false ? null : $decoded;
+        }
+
+        $path = $config['private_key_path'] ?? null;
+
+        if ($path && ! str_starts_with($path, '/')) {
+            $path = base_path($path);
+        }
+
+        return $path && is_readable($path) ? (string) file_get_contents($path) : null;
     }
 }

@@ -105,6 +105,53 @@ php artisan vendor:publish --tag=send-it-views
 Point `email.layout` at your own view, or set it to `null` to send content
 unwrapped.
 
+## Apple push notifications
+
+The **Apple push notification** channel sends an entry as a push notification
+to every app install that has registered with the site. It uses an APNs auth
+key, so one key covers iOS, iPadOS, macOS and watchOS. Watches receive the
+notification through the paired iPhone.
+
+```dotenv
+SEND_IT_APNS_ENABLED=true
+SEND_IT_APNS_TEAM_ID=ABCDE12345          # Apple Developer team id
+SEND_IT_APNS_KEY_ID=XYZ9876543           # the auth key's id
+SEND_IT_APNS_PRIVATE_KEY_PATH=storage/app/apns/AuthKey_XYZ9876543.p8
+# …or base64 of the .p8 file (base64 -i AuthKey_XYZ9876543.p8):
+# SEND_IT_APNS_PRIVATE_KEY_BASE64=LS0tLS1CRUdJTi…
+# …or inline, with \n for newlines:
+# SEND_IT_APNS_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nMIG…\n-----END PRIVATE KEY-----"
+SEND_IT_APNS_TOPIC=com.example.app       # the app's bundle id
+SEND_IT_APNS_TEST_TOKEN=                 # optional default for test sends
+```
+
+Run `php artisan migrate` to create the `send_it_push_devices` table.
+
+**Registering devices.** Apps register by POSTing JSON to `/api/push/devices`
+(`token`, plus optional `platform`, `environment` (`sandbox` or `production`),
+`app_version`, `locale` and `timezone`). To unregister, send
+`DELETE /api/push/devices/{token}`. The route is throttled. Change or disable it
+with `send-it.channels.apns.devices.route`.
+
+**Sending.** Choose **Apple push notification** in the Send It action. The
+title is the Subject, or the entry title if Subject is empty. The message is
+what you type; if you leave it blank, it comes from the entry's `excerpt` field
+(`SEND_IT_APNS_BODY_FIELD`), or from the start of its content. **When tapped**
+can open the entry's page, which is sent as a `url` key in the payload. It can
+also send an app-specific `action`, configured under
+`send-it.channels.apns.actions`. There are three delivery options:
+
+- **Test: send to one device.** Sends right away to one token and shows
+  Apple's response.
+- **Send to all devices now.** Queues a job that sends to every registered
+  device in parallel batches. Devices that Apple reports as gone
+  (`Unregistered`, `BadDeviceToken`) are removed.
+- **Schedule for later.** Uses the same scheduler as Mailchimp. The entry is
+  published when the send goes out.
+
+Devices built from Xcode register as `sandbox`. TestFlight and App Store builds
+register as `production`. Each device is sent to the matching APNs server.
+
 ## Adding a channel
 
 Implement `Abigah\SendIt\Contracts\Channel` and register it from any service
