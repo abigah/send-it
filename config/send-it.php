@@ -124,6 +124,56 @@ return [
             'content_field' => 'content',
         ],
 
+        // Apple push notifications (iOS, iPadOS, macOS, and watchOS via the
+        // paired iPhone) using an APNs auth key (.p8) from the Apple Developer
+        // account: Certificates, Identifiers & Profiles → Keys.
+        'apns' => [
+            'enabled' => env('SEND_IT_APNS_ENABLED', false),
+
+            'team_id' => env('SEND_IT_APNS_TEAM_ID'),
+            'key_id' => env('SEND_IT_APNS_KEY_ID'),
+
+            // The .p8 key: its contents (newlines may be written as \n), the
+            // contents base64-encoded (handy for single-line env values), or
+            // a path to the .p8 file. One of the three is required.
+            'private_key' => env('SEND_IT_APNS_PRIVATE_KEY'),
+            'private_key_base64' => env('SEND_IT_APNS_PRIVATE_KEY_BASE64'),
+            'private_key_path' => env('SEND_IT_APNS_PRIVATE_KEY_PATH'),
+
+            // The app's bundle identifier, e.g. "com.example.app".
+            'topic' => env('SEND_IT_APNS_TOPIC'),
+
+            // Entry field used for the notification text when no message is
+            // typed; falls back to the start of content_field.
+            'body_field' => env('SEND_IT_APNS_BODY_FIELD', 'excerpt'),
+            'content_field' => 'content',
+
+            'sound' => 'default',
+
+            // Extra "When tapped" choices, sent as the payload's "action" key
+            // for the app to handle, e.g. ['pray' => 'Open Pray Now'].
+            'actions' => [],
+
+            // Default recipient for test sends, and its environment when the
+            // token isn't registered ("sandbox" for Xcode builds).
+            'test_token' => env('SEND_IT_APNS_TEST_TOKEN'),
+            'test_environment' => env('SEND_IT_APNS_TEST_ENVIRONMENT', 'sandbox'),
+
+            // Requests sent to APNs in parallel over HTTP/2.
+            'concurrency' => env('SEND_IT_APNS_CONCURRENCY', 20),
+
+            // Queue for the fan-out job; null uses the default queue.
+            'queue' => env('SEND_IT_APNS_QUEUE'),
+
+            // Apps POST {token, platform, environment, app_version, locale,
+            // timezone} here to register. Set route to null to disable.
+            'devices' => [
+                'route' => env('SEND_IT_APNS_DEVICES_ROUTE', 'api/push/devices'),
+                'middleware' => ['api', 'throttle:30,1'],
+                'table' => 'send_it_push_devices',
+            ],
+        ],
+
     ],
 
 ];
