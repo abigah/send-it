@@ -10,6 +10,7 @@ use Abigah\SendIt\Channels\MailerChannel;
 use Abigah\SendIt\Console\Commands\RunScheduledSends;
 use Abigah\SendIt\Mailchimp\MailchimpClient;
 use Abigah\SendIt\Push\ApnsClient;
+use Abigah\SendIt\Push\DeviceStore;
 use Abigah\SendIt\Scheduling\ScheduleStore;
 use Abigah\SendIt\Support\EmailRenderer;
 use Illuminate\Console\Scheduling\Schedule;
@@ -40,6 +41,12 @@ class ServiceProvider extends AddonServiceProvider
             );
         });
 
+        $this->app->singleton(DeviceStore::class, function () {
+            return new DeviceStore(
+                config('send-it.channels.apns.devices.store') ?: storage_path('app/send-it/push-devices.json'),
+            );
+        });
+
         $this->app->singleton(ApnsClient::class, function () {
             $config = config('send-it.channels.apns', []);
 
@@ -64,8 +71,6 @@ class ServiceProvider extends AddonServiceProvider
     public function bootAddon()
     {
         $this->loadViewsFrom(__DIR__.'/../resources/views', 'send-it');
-
-        $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
 
         if (config('send-it.channels.apns.enabled') && config('send-it.channels.apns.devices.route')) {
             $this->loadRoutesFrom(__DIR__.'/../routes/push.php');

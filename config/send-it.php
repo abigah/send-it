@@ -170,7 +170,10 @@ return [
             'devices' => [
                 'route' => env('SEND_IT_APNS_DEVICES_ROUTE', 'api/push/devices'),
                 'middleware' => ['api', 'throttle:30,1'],
-                'table' => 'send_it_push_devices',
+
+                // Registered devices are kept in this JSON file. Point it at a
+                // git-tracked folder (e.g. content/) to have it backed up.
+                'store' => env('SEND_IT_APNS_DEVICES_STORE', storage_path('app/send-it/push-devices.json')),
             ],
         ],
 
