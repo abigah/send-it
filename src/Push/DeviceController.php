@@ -14,6 +14,8 @@ class DeviceController extends Controller
 {
     public const TOKEN_RULE = 'regex:/^[0-9a-fA-F]{64,200}$/';
 
+    public function __construct(protected DeviceStore $devices) {}
+
     public function store(Request $request): JsonResponse
     {
         $data = $request->validate([
@@ -25,24 +27,20 @@ class DeviceController extends Controller
             'timezone' => ['nullable', 'string', 'max:64'],
         ]);
 
-        $device = PushDevice::updateOrCreate(
-            ['token' => strtolower($data['token'])],
-            [
-                'platform' => $data['platform'] ?? 'ios',
-                'environment' => $data['environment'] ?? 'production',
-                'app_version' => $data['app_version'] ?? null,
-                'locale' => $data['locale'] ?? null,
-                'timezone' => $data['timezone'] ?? null,
-                'last_seen_at' => now(),
-            ],
-        );
+        $created = $this->devices->register($data['token'], [
+            'platform' => $data['platform'] ?? 'ios',
+            'environment' => $data['environment'] ?? 'production',
+            'app_version' => $data['app_version'] ?? null,
+            'locale' => $data['locale'] ?? null,
+            'timezone' => $data['timezone'] ?? null,
+        ]);
 
-        return response()->json(['registered' => true], $device->wasRecentlyCreated ? 201 : 200);
+        return response()->json(['registered' => true], $created ? 201 : 200);
     }
 
     public function destroy(string $token): Response
     {
-        PushDevice::where('token', strtolower($token))->delete();
+        $this->devices->forget($token);
 
         return response()->noContent();
     }

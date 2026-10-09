@@ -6,7 +6,7 @@ use Abigah\SendIt\Contracts\Channel;
 use Abigah\SendIt\Exceptions\SendItException;
 use Abigah\SendIt\Jobs\SendPushNotification;
 use Abigah\SendIt\Push\ApnsClient;
-use Abigah\SendIt\Push\PushDevice;
+use Abigah\SendIt\Push\DeviceStore;
 use Abigah\SendIt\Scheduling\ScheduledSend;
 use Abigah\SendIt\Scheduling\ScheduleStore;
 use Abigah\SendIt\Support\EntryContent;
@@ -123,7 +123,7 @@ class ApnsChannel implements Channel
             throw new SendItException('Publish the entry before sending — the notification links to its page. (Scheduled sends publish it automatically.)');
         }
 
-        $devices = PushDevice::count();
+        $devices = app(DeviceStore::class)->count();
 
         if ($devices === 0) {
             throw new SendItException('No devices have registered for push notifications yet.');
@@ -212,7 +212,7 @@ class ApnsChannel implements Channel
             throw new SendItException('Enter a test device token (or set SEND_IT_APNS_TEST_TOKEN).');
         }
 
-        $environment = PushDevice::where('token', $token)->value('environment')
+        $environment = app(DeviceStore::class)->environment($token)
             ?? ($this->config['test_environment'] ?? 'sandbox');
 
         $result = $this->client->send([$token], $payload, $environment)[$token] ?? ['status' => 0, 'reason' => 'No response'];

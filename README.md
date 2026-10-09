@@ -125,7 +125,17 @@ SEND_IT_APNS_TOPIC=com.example.app       # the app's bundle id
 SEND_IT_APNS_TEST_TOKEN=                 # optional default for test sends
 ```
 
-Run `php artisan migrate` to create the `send_it_push_devices` table.
+Registered devices are kept in a JSON file, keyed by token, at
+`storage/app/send-it/push-devices.json` by default. No database is needed. To
+have the list backed up with your content, point it at a git-tracked folder:
+
+```env
+SEND_IT_APNS_DEVICES_STORE=/path/to/site/content/send-it/push-devices.json
+```
+
+Writes are locked, so concurrent registrations are safe. A device is only
+rewritten when something changes (`last_seen` is a date), so the file doesn't
+churn in git.
 
 **Registering devices.** Apps register by POSTing JSON to `/api/push/devices`
 (`token`, plus optional `platform`, `environment` (`sandbox` or `production`),

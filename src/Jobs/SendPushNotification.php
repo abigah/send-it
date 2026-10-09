@@ -3,7 +3,7 @@
 namespace Abigah\SendIt\Jobs;
 
 use Abigah\SendIt\Push\ApnsClient;
-use Abigah\SendIt\Push\PushDevice;
+use Abigah\SendIt\Push\DeviceStore;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -33,37 +33,34 @@ class SendPushNotification implements ShouldQueue
     /**
      * @return array{sent: int, failed: int, removed: int}
      */
-    public function handle(ApnsClient $client): array
+    public function handle(ApnsClient $client, DeviceStore $devices): array
     {
         $totals = ['sent' => 0, 'failed' => 0, 'removed' => 0];
 
         foreach (['production', 'sandbox'] as $environment) {
-            PushDevice::query()
-                ->where('environment', $environment)
-                ->select(['id', 'token'])
-                ->chunkById(500, function ($devices) use ($client, $environment, &$totals) {
-                    $results = $client->send($devices->pluck('token')->all(), $this->payload, $environment);
+            foreach (array_chunk($devices->tokens($environment), 500) as $tokens) {
+                $results = $client->send($tokens, $this->payload, $environment);
 
-                    $dead = [];
+                $dead = [];
 
-                    foreach ($results as $token => $result) {
-                        if ($result['status'] === 200) {
-                            $totals['sent']++;
+                foreach ($results as $token => $result) {
+                    if ($result['status'] === 200) {
+                        $totals['sent']++;
 
-                            continue;
-                        }
-
-                        $totals['failed']++;
-
-                        if ($result['status'] === 410 || in_array($result['reason'], ApnsClient::DEAD_TOKEN_REASONS, true)) {
-                            $dead[] = $token;
-                        }
+                        continue;
                     }
 
-                    if ($dead !== []) {
-                        $totals['removed'] += PushDevice::whereIn('token', $dead)->delete();
+                    $totals['failed']++;
+
+                    if ($result['status'] === 410 || in_array($result['reason'], ApnsClient::DEAD_TOKEN_REASONS, true)) {
+                        $dead[] = $token;
                     }
-                });
+                }
+
+                if ($dead !== []) {
+                    $totals['removed'] += $devices->forget($dead);
+                }
+            }
         }
 
         Log::info("Send It push \"{$this->label}\": {$totals['sent']} delivered, {$totals['failed']} failed, {$totals['removed']} stale devices removed.");

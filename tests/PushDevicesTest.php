@@ -4,25 +4,36 @@ namespace Abigah\SendIt\Tests;
 
 use Abigah\SendIt\Jobs\SendPushNotification;
 use Abigah\SendIt\Push\ApnsClient;
-use Abigah\SendIt\Push\PushDevice;
+use Abigah\SendIt\Push\DeviceStore;
 use Illuminate\Support\Facades\Http;
 use Orchestra\Testbench\TestCase;
 
 class PushDevicesTest extends TestCase
 {
+    protected string $storePath;
+
     protected function defineEnvironment($app): void
     {
-        $app['config']->set('database.default', 'testing');
+        $this->storePath = sys_get_temp_dir().'/send-it-devices-'.uniqid().'.json';
+
         $app['config']->set('send-it.channels.apns.devices', [
             'route' => 'api/push/devices',
             'middleware' => ['api'],
-            'table' => 'send_it_push_devices',
+            'store' => $this->storePath,
         ]);
+        $app->singleton(DeviceStore::class, fn () => new DeviceStore($this->storePath));
     }
 
-    protected function defineDatabaseMigrations(): void
+    protected function tearDown(): void
     {
-        $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
+        @unlink($this->storePath);
+
+        parent::tearDown();
+    }
+
+    protected function devices(): DeviceStore
+    {
+        return $this->app->make(DeviceStore::class);
     }
 
     protected function defineRoutes($router): void
@@ -44,24 +55,24 @@ class PushDevicesTest extends TestCase
         // Registering again updates rather than duplicates.
         $this->postJson('api/push/devices', ['token' => $token, 'environment' => 'production'])->assertOk();
 
-        $this->assertSame(1, PushDevice::count());
-        $this->assertSame('production', PushDevice::first()->environment);
-        $this->assertSame(strtolower($token), PushDevice::first()->token);
+        $this->assertSame(1, $this->devices()->count());
+        $this->assertSame('production', $this->devices()->environment($token));
+        $this->assertArrayHasKey(strtolower($token), $this->devices()->all());
     }
 
     public function test_it_rejects_malformed_tokens(): void
     {
         $this->postJson('api/push/devices', ['token' => 'not-a-token'])->assertUnprocessable();
-        $this->assertSame(0, PushDevice::count());
+        $this->assertSame(0, $this->devices()->count());
     }
 
     public function test_an_app_can_unregister(): void
     {
         $token = str_repeat('cd', 32);
-        PushDevice::create(['token' => $token]);
+        $this->devices()->register($token, []);
 
         $this->deleteJson("api/push/devices/{$token}")->assertNoContent();
-        $this->assertSame(0, PushDevice::count());
+        $this->assertSame(0, $this->devices()->count());
     }
 
     public function test_the_job_sends_to_each_environment_and_forgets_dead_tokens(): void
@@ -70,9 +81,9 @@ class PushDevicesTest extends TestCase
         $dead = str_repeat('22', 32);
         $dev = str_repeat('33', 32);
 
-        PushDevice::create(['token' => $live, 'environment' => 'production']);
-        PushDevice::create(['token' => $dead, 'environment' => 'production']);
-        PushDevice::create(['token' => $dev, 'environment' => 'sandbox']);
+        $this->devices()->register($live, ['environment' => 'production']);
+        $this->devices()->register($dead, ['environment' => 'production']);
+        $this->devices()->register($dev, ['environment' => 'sandbox']);
 
         Http::fake([
             "api.push.apple.com/3/device/{$live}" => Http::response('', 200),
@@ -84,9 +95,27 @@ class PushDevicesTest extends TestCase
         openssl_pkey_export($key, $pem);
 
         $totals = (new SendPushNotification(['aps' => ['alert' => ['title' => 'Hi']]], 'Hi'))
-            ->handle(new ApnsClient('TEAM', 'KEY', $pem, 'com.example.app'));
+            ->handle(new ApnsClient('TEAM', 'KEY', $pem, 'com.example.app'), $this->devices());
 
         $this->assertSame(['sent' => 2, 'failed' => 1, 'removed' => 1], $totals);
-        $this->assertEqualsCanonicalizing([$live, $dev], PushDevice::pluck('token')->all());
+        $this->assertEqualsCanonicalizing([$live, $dev], array_keys($this->devices()->all()));
+    }
+
+    public function test_re_registering_the_same_device_on_the_same_day_leaves_the_file_untouched(): void
+    {
+        $token = str_repeat('ef', 32);
+        $attributes = ['platform' => 'ios', 'environment' => 'production'];
+
+        $this->assertTrue($this->devices()->register($token, $attributes));
+        $before = file_get_contents($this->storePath);
+        touch($this->storePath, time() - 60);
+        clearstatcache();
+        $mtime = filemtime($this->storePath);
+
+        $this->assertFalse($this->devices()->register($token, $attributes));
+        clearstatcache();
+
+        $this->assertSame($mtime, filemtime($this->storePath));
+        $this->assertSame($before, file_get_contents($this->storePath));
     }
 }
