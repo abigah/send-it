@@ -4,6 +4,7 @@ namespace Abigah\SendIt\Tests;
 
 use Abigah\SendIt\Push\ApnsClient;
 use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Orchestra\Testbench\TestCase;
 
@@ -75,6 +76,38 @@ class ApnsClientTest extends TestCase
         $this->assertCount(2, $results);
         $this->assertSame(200, $results[$good]['status']);
         $this->assertSame(['status' => 410, 'reason' => 'Unregistered'], $results[$bad]);
+    }
+
+    public function test_a_replaced_key_does_not_reuse_the_old_cached_token(): void
+    {
+        $first = $this->client()->token();
+
+        $other = openssl_pkey_new(['private_key_type' => OPENSSL_KEYTYPE_EC, 'curve_name' => 'prime256v1']);
+        openssl_pkey_export($other, $otherKey);
+        $second = (new ApnsClient('TEAM123456', 'KEY1234567', $otherKey, 'com.example.app'))->token();
+
+        $this->assertNotSame($first, $second);
+        $this->assertSame($first, $this->client()->token());
+    }
+
+    public function test_a_rejected_provider_token_is_dropped_and_the_send_retried_once(): void
+    {
+        $token = str_repeat('cc', 32);
+        $stale = 'stale.cached.token';
+        $client = $this->client();
+
+        $cacheKey = (fn () => $this->cacheKey())->call($client);
+        Cache::put($cacheKey, $stale, 60);
+
+        Http::fake(fn (Request $request) => $request->header('Authorization')[0] === "Bearer {$stale}"
+            ? Http::response(['reason' => 'InvalidProviderToken'], 403)
+            : Http::response('', 200));
+
+        $results = $client->send([$token], ['aps' => []]);
+
+        $this->assertSame(['status' => 200, 'reason' => null], $results[$token]);
+        $this->assertNotSame($stale, Cache::get($cacheKey));
+        Http::assertSentCount(2);
     }
 
     private function decode(string $value): string
