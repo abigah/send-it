@@ -26,6 +26,11 @@ class ApnsClient
      */
     public const DEAD_TOKEN_REASONS = ['BadDeviceToken', 'Unregistered', 'DeviceTokenNotForTopic'];
 
+    /**
+     * Reasons APNs gives when the provider (JWT) token itself is rejected.
+     */
+    public const PROVIDER_TOKEN_REASONS = ['InvalidProviderToken', 'ExpiredProviderToken'];
+
     public function __construct(
         protected string $teamId,
         protected string $keyId,
@@ -44,10 +49,34 @@ class ApnsClient
     public function send(array $tokens, array $payload, string $environment = 'production'): array
     {
         $host = $environment === 'sandbox' ? self::SANDBOX : self::PRODUCTION;
-        $jwt = $this->token();
+        $results = $this->sendWith($this->token(), array_values(array_unique($tokens)), $payload, $host);
+
+        // A rejected provider token (e.g. after the key changed) is dropped
+        // from the cache and the affected devices retried once with a new one.
+        $retry = array_keys(array_filter(
+            $results,
+            fn (array $result) => in_array($result['reason'], self::PROVIDER_TOKEN_REASONS, true),
+        ));
+
+        if ($retry !== []) {
+            Cache::forget($this->cacheKey());
+
+            $results = array_replace($results, $this->sendWith($this->token(), $retry, $payload, $host));
+        }
+
+        return $results;
+    }
+
+    /**
+     * @param  array<int, string>  $tokens
+     * @param  array<string, mixed>  $payload
+     * @return array<string, array{status: int, reason: ?string}>
+     */
+    protected function sendWith(string $jwt, array $tokens, array $payload, string $host): array
+    {
         $results = [];
 
-        foreach (array_chunk(array_values(array_unique($tokens)), max(1, $this->concurrency)) as $batch) {
+        foreach (array_chunk($tokens, max(1, $this->concurrency)) as $batch) {
             $responses = Http::pool(fn (Pool $pool) => array_map(
                 fn (string $token) => $pool->as($token)
                     ->withOptions(['version' => 2.0])
@@ -77,11 +106,16 @@ class ApnsClient
      */
     public function token(): string
     {
-        return Cache::remember(
-            "send-it.apns.jwt.{$this->teamId}.{$this->keyId}",
-            now()->addMinutes(45),
-            fn () => $this->makeToken(),
-        );
+        return Cache::remember($this->cacheKey(), now()->addMinutes(45), fn () => $this->makeToken());
+    }
+
+    /**
+     * Includes a fingerprint of the key, so a replaced key never reuses a
+     * token signed by the old one.
+     */
+    protected function cacheKey(): string
+    {
+        return "send-it.apns.jwt.{$this->teamId}.{$this->keyId}.".substr(hash('sha256', $this->privateKey), 0, 16);
     }
 
     public function makeToken(?int $issuedAt = null): string
@@ -89,7 +123,7 @@ class ApnsClient
         $key = openssl_pkey_get_private($this->privateKey);
 
         if ($key === false) {
-            throw new SendItException('The APNs private key could not be read. Check SEND_IT_APNS_PRIVATE_KEY.');
+            throw new SendItException('The APNs private key could not be read. Check the configured APNs key.');
         }
 
         $header = static::base64Url(json_encode(['alg' => 'ES256', 'kid' => $this->keyId]));
