@@ -28,7 +28,19 @@ class SendPushNotification implements ShouldQueue
     public function __construct(
         public array $payload,
         public string $label = '',
+        public string $pushType = 'alert',
     ) {}
+
+    /**
+     * A silent push that wakes the app in the background, e.g. to refresh a
+     * feed. No alert, sound or badge; the data keys ride alongside "aps".
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public static function background(array $data = [], string $label = 'background'): static
+    {
+        return new static(['aps' => ['content-available' => 1]] + $data, $label, 'background');
+    }
 
     /**
      * @return array{sent: int, failed: int, removed: int}
@@ -39,7 +51,7 @@ class SendPushNotification implements ShouldQueue
 
         foreach (['production', 'sandbox'] as $environment) {
             foreach (array_chunk($devices->tokens($environment), 500) as $tokens) {
-                $results = $client->send($tokens, $this->payload, $environment);
+                $results = $client->send($tokens, $this->payload, $environment, $this->pushType);
 
                 $dead = [];
 
