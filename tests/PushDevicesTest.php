@@ -101,6 +101,35 @@ class PushDevicesTest extends TestCase
         $this->assertEqualsCanonicalizing([$live, $dev], array_keys($this->devices()->all()));
     }
 
+    public function test_a_background_push_is_silent_and_low_priority(): void
+    {
+        $live = str_repeat('44', 32);
+        $dead = str_repeat('55', 32);
+
+        $this->devices()->register($live, ['environment' => 'production']);
+        $this->devices()->register($dead, ['environment' => 'production']);
+
+        Http::fake([
+            "api.push.apple.com/3/device/{$live}" => Http::response('', 200),
+            "api.push.apple.com/3/device/{$dead}" => Http::response(['reason' => 'Unregistered'], 410),
+        ]);
+
+        $key = openssl_pkey_new(['private_key_type' => OPENSSL_KEYTYPE_EC, 'curve_name' => 'prime256v1']);
+        openssl_pkey_export($key, $pem);
+
+        $job = SendPushNotification::background(['feed' => 'news'], 'News');
+
+        $this->assertSame(['aps' => ['content-available' => 1], 'feed' => 'news'], $job->payload);
+
+        $totals = $job->handle(new ApnsClient('TEAM', 'KEY', $pem, 'com.example.app'), $this->devices());
+
+        $this->assertSame(['sent' => 1, 'failed' => 1, 'removed' => 1], $totals);
+
+        Http::assertSent(fn ($request) => $request->header('apns-push-type') === ['background']
+            && $request->header('apns-priority') === ['5']
+            && $request->data() === ['aps' => ['content-available' => 1], 'feed' => 'news']);
+    }
+
     public function test_re_registering_the_same_device_on_the_same_day_leaves_the_file_untouched(): void
     {
         $token = str_repeat('ef', 32);

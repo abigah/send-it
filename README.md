@@ -162,6 +162,17 @@ also send an app-specific `action`, configured under
 Devices built from Xcode register as `sandbox`. TestFlight and App Store builds
 register as `production`. Each device is sent to the matching APNs server.
 
+**Silent pushes.** To wake every installed app in the background, for example
+so it can refresh a feed, dispatch a background push from your own code:
+
+```php
+dispatch(\Abigah\SendIt\Jobs\SendPushNotification::background(['feed' => 'news'], 'News feed'));
+```
+
+It sends `{"aps":{"content-available":1}, "feed":"news"}` with
+`apns-push-type: background` at priority 5, with no alert, sound or badge.
+iOS throttles these, so send no more than a few an hour.
+
 ## Adding a channel
 
 Implement `Abigah\SendIt\Contracts\Channel` and register it from any service

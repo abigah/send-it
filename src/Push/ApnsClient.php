@@ -42,14 +42,17 @@ class ApnsClient
     /**
      * Send one payload to many device tokens in the given environment.
      *
+     * A "background" push type wakes the app silently; APNs requires those
+     * to go at priority 5 and throttles them heavily.
+     *
      * @param  array<int, string>  $tokens
      * @param  array<string, mixed>  $payload
      * @return array<string, array{status: int, reason: ?string}> keyed by token
      */
-    public function send(array $tokens, array $payload, string $environment = 'production'): array
+    public function send(array $tokens, array $payload, string $environment = 'production', string $pushType = 'alert'): array
     {
         $host = $environment === 'sandbox' ? self::SANDBOX : self::PRODUCTION;
-        $results = $this->sendWith($this->token(), array_values(array_unique($tokens)), $payload, $host);
+        $results = $this->sendWith($this->token(), array_values(array_unique($tokens)), $payload, $host, $pushType);
 
         // A rejected provider token (e.g. after the key changed) is dropped
         // from the cache and the affected devices retried once with a new one.
@@ -61,7 +64,7 @@ class ApnsClient
         if ($retry !== []) {
             Cache::forget($this->cacheKey());
 
-            $results = array_replace($results, $this->sendWith($this->token(), $retry, $payload, $host));
+            $results = array_replace($results, $this->sendWith($this->token(), $retry, $payload, $host, $pushType));
         }
 
         return $results;
@@ -72,7 +75,7 @@ class ApnsClient
      * @param  array<string, mixed>  $payload
      * @return array<string, array{status: int, reason: ?string}>
      */
-    protected function sendWith(string $jwt, array $tokens, array $payload, string $host): array
+    protected function sendWith(string $jwt, array $tokens, array $payload, string $host, string $pushType): array
     {
         $results = [];
 
@@ -83,8 +86,8 @@ class ApnsClient
                     ->withToken($jwt)
                     ->withHeaders([
                         'apns-topic' => $this->topic,
-                        'apns-push-type' => 'alert',
-                        'apns-priority' => '10',
+                        'apns-push-type' => $pushType,
+                        'apns-priority' => $pushType === 'background' ? '5' : '10',
                     ])
                     ->timeout(15)
                     ->post("{$host}/3/device/{$token}", $payload),
