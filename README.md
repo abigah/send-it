@@ -33,6 +33,7 @@ SEND_IT_CHANNEL=mailchimp
 # Mailchimp
 SEND_IT_MAILCHIMP_API_KEY=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx-us21
 SEND_IT_MAILCHIMP_AUDIENCE_ID=abc123
+# Optional: the audience's default sender in Mailchimp is used when blank
 SEND_IT_MAILCHIMP_FROM_NAME="Abigah"
 SEND_IT_MAILCHIMP_REPLY_TO=hello@abigah.com
 # Create drafts by default; flip to send immediately
@@ -48,6 +49,80 @@ automatically; override it with `SEND_IT_MAILCHIMP_SERVER_PREFIX` if needed.
 By default the campaign/email body comes from the entry's `content` field
 (its augmented HTML). Change the source field per channel via
 `config/send-it.php`.
+
+### Environment variables
+
+Only the variables marked **required** need setting for a channel to appear
+in the Send It action; the rest have the defaults shown.
+
+**General**
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `SEND_IT_CHANNEL` | `mailchimp` | Channel selected when the action opens |
+| `SEND_IT_SCHEDULE_STORE` | `storage/app/send-it/scheduled-sends.json` | Where scheduled sends are kept |
+
+**Mailchimp**
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `SEND_IT_MAILCHIMP_ENABLED` | `true` | Turn the channel off with `false` |
+| `SEND_IT_MAILCHIMP_API_KEY` | **required** | API key, ending in the server prefix (`-us21`) |
+| `SEND_IT_MAILCHIMP_AUDIENCE_ID` | **required** | Audience (list) id campaigns go to |
+| `SEND_IT_MAILCHIMP_SERVER_PREFIX` | from the API key | Only if the key has no suffix |
+| `SEND_IT_MAILCHIMP_FROM_NAME` | the audience's default | Sender name on campaigns |
+| `SEND_IT_MAILCHIMP_REPLY_TO` | the audience's default from address | Reply-to address on campaigns |
+| `SEND_IT_MAILCHIMP_SEND_IMMEDIATELY` | `false` | Pre-select "Send immediately" instead of "Save as draft" |
+
+Campaigns created through Mailchimp's API don't pick up the audience's default
+sender on their own, so Send It looks it up (Audience → Settings → Audience
+name and defaults) whenever the from name or reply-to is blank.
+
+**Mailer (test sends)**
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `SEND_IT_MAILER_ENABLED` | `true` | Turn the channel off with `false` |
+| `SEND_IT_MAILER_TO` | none | Default recipient(s) for test sends |
+| `SEND_IT_MAILER_FROM_ADDRESS` | `MAIL_FROM_ADDRESS` | From address |
+| `SEND_IT_MAILER_FROM_NAME` | `MAIL_FROM_NAME` | From name |
+
+**Email layout** (used by Mailchimp and the mailer)
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `SEND_IT_EMAIL_LOGO_URL` | none | Absolute URL of the logo at the top |
+| `SEND_IT_EMAIL_LOGO_WIDTH` | `160` | Logo width in pixels |
+| `SEND_IT_EMAIL_SITE_NAME` | `APP_NAME` | Logo alt text, or shown in place of a logo |
+| `SEND_IT_EMAIL_SITE_URL` | `APP_URL` | Where the logo links |
+| `SEND_IT_EMAIL_AUTHOR_FIELD` | `author` | Entry field for the byline |
+| `SEND_IT_EMAIL_DATE_FORMAT` | `F j, Y` | Date format in the byline |
+| `SEND_IT_EMAIL_GREETING` | `Hi {first_name},` | Greeting under the title; empty to remove |
+| `SEND_IT_EMAIL_GREETING_FALLBACK` | `friend` | Used when there's no first name |
+| `SEND_IT_EMAIL_COMPANY` | `APP_NAME` | Name in the copyright line |
+| `SEND_IT_EMAIL_FOOTER_TEXT` | none | Extra footer line |
+| `SEND_IT_EMAIL_FOOTER_ADDRESS` | none | Mailing address in the footer |
+| `SEND_IT_EMAIL_UNSUBSCRIBE_URL` | `#` | Mailer only; Mailchimp uses its own link |
+| `SEND_IT_EMAIL_UPDATE_PREFERENCES_URL` | none | Mailer only; Mailchimp uses its own link |
+
+**Apple push notifications** (see [below](#apple-push-notifications))
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `SEND_IT_APNS_ENABLED` | `false` | Turn the channel on with `true` |
+| `SEND_IT_APNS_TEAM_ID` | **required** | Apple Developer team id |
+| `SEND_IT_APNS_KEY_ID` | **required** | The auth key's id |
+| `SEND_IT_APNS_PRIVATE_KEY_PATH` | **one of three** | Path to the `.p8` file |
+| `SEND_IT_APNS_PRIVATE_KEY_BASE64` | **one of three** | The `.p8` contents, base64-encoded |
+| `SEND_IT_APNS_PRIVATE_KEY` | **one of three** | The `.p8` contents, newlines as `\n` |
+| `SEND_IT_APNS_TOPIC` | **required** | The app's bundle id |
+| `SEND_IT_APNS_BODY_FIELD` | `excerpt` | Entry field for the message when none is typed |
+| `SEND_IT_APNS_TEST_TOKEN` | none | Default device for test sends |
+| `SEND_IT_APNS_TEST_ENVIRONMENT` | `sandbox` | APNs server for an unregistered test token |
+| `SEND_IT_APNS_CONCURRENCY` | `20` | Parallel requests to APNs |
+| `SEND_IT_APNS_QUEUE` | default queue | Queue for the send job |
+| `SEND_IT_APNS_DEVICES_ROUTE` | `api/push/devices` | Device registration route; empty to disable |
+| `SEND_IT_APNS_DEVICES_STORE` | `storage/app/send-it/push-devices.json` | Where devices are kept |
 
 ## Usage
 
