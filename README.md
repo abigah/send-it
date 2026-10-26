@@ -225,7 +225,7 @@ churn in git.
 
 **Registering devices.** Apps register by POSTing JSON to `/api/push/devices`
 (`token`, plus optional `platform`, `environment` (`sandbox` or `production`),
-`app_version`, `locale` and `timezone`). To unregister, send
+`app_version`, `locale`, `timezone` and `first_name`). To unregister, send
 `DELETE /api/push/devices/{token}`. The route is throttled. Change or disable it
 with `send-it.channels.apns.devices.route`.
 

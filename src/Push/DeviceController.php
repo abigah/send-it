@@ -25,6 +25,7 @@ class DeviceController extends Controller
             'app_version' => ['nullable', 'string', 'max:32'],
             'locale' => ['nullable', 'string', 'max:35'],
             'timezone' => ['nullable', 'string', 'max:64'],
+            'first_name' => ['nullable', 'string', 'max:50'],
         ]);
 
         $created = $this->devices->register($data['token'], [
@@ -33,6 +34,7 @@ class DeviceController extends Controller
             'app_version' => $data['app_version'] ?? null,
             'locale' => $data['locale'] ?? null,
             'timezone' => $data['timezone'] ?? null,
+            'first_name' => filled($data['first_name'] ?? null) ? trim($data['first_name']) : null,
         ]);
 
         return response()->json(['registered' => true], $created ? 201 : 200);
