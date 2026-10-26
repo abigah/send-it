@@ -67,6 +67,12 @@ class SendItFieldsTest extends TestCase
         ]));
     }
 
+    public function test_a_test_needs_an_address(): void
+    {
+        $this->assertSame(['mailchimp_test_emails'], $this->errors(['channel' => 'mailchimp', 'mailchimp_delivery' => 'test']));
+        $this->assertSame([], $this->errors(['channel' => 'mailchimp', 'mailchimp_delivery' => 'test', 'mailchimp_test_emails' => 'mike@example.com']));
+    }
+
     public function test_a_schedule_needs_a_time(): void
     {
         $this->assertSame(['apns_schedule_at'], $this->errors(['channel' => 'apns', 'apns_delivery' => 'schedule']));

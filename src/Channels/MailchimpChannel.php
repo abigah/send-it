@@ -59,9 +59,10 @@ class MailchimpChannel implements Channel
             'mailchimp_delivery' => [
                 'type' => 'select',
                 'display' => 'Delivery',
-                'instructions' => 'Save the campaign as a draft for review, send it now, or schedule it for later.',
+                'instructions' => 'Save the campaign as a draft for review, send a test, send it now, or schedule it for later.',
                 'options' => [
                     'draft' => 'Save as draft',
+                    'test' => 'Send a test',
                     'send' => 'Send immediately',
                     'schedule' => 'Schedule for later',
                 ],
@@ -78,6 +79,16 @@ class MailchimpChannel implements Channel
                 'clearable' => true,
                 'placeholder' => 'Whole audience',
                 'if' => ['channel' => 'equals mailchimp'],
+            ],
+            'mailchimp_test_emails' => [
+                'type' => 'text',
+                'display' => 'Send test to',
+                'instructions' => 'Email address(es) for the test, comma separated. They don\'t need to be on the audience or have Mailchimp access.',
+                'validate' => ['exclude_unless:channel,mailchimp', 'required_if:mailchimp_delivery,test'],
+                'if' => [
+                    'channel' => 'equals mailchimp',
+                    'mailchimp_delivery' => 'equals test',
+                ],
             ],
             'mailchimp_schedule_at' => [
                 'type' => 'date',
@@ -110,6 +121,12 @@ class MailchimpChannel implements Channel
             return $this->schedule($entry, $subject, $options);
         }
 
+        $testEmails = $this->testEmails($options);
+
+        if ($delivery === 'test' && $testEmails === []) {
+            throw new SendItException('Enter at least one email address to send the test to.');
+        }
+
         $html = EntryContent::html($entry, $this->config['content_field'] ?? 'content');
 
         if ($html === '') {
@@ -131,15 +148,19 @@ class MailchimpChannel implements Channel
         try {
             $campaign = $this->client->createCampaign($audienceId, [
                 'subject_line' => $subject,
-                'title' => EntryContent::title($entry),
+                'title' => ($delivery === 'test' ? 'Test: ' : '').EntryContent::title($entry),
                 'from_name' => $this->config['from_name'] ?? null,
                 'reply_to' => $this->config['reply_to'] ?? null,
-            ], $this->segmentOpts($options));
+            ], $delivery === 'test' ? [] : $this->segmentOpts($options));
 
             $this->client->setCampaignContent($campaign['id'], $html);
 
             if ($delivery === 'send') {
                 $this->client->sendCampaign($campaign['id']);
+            }
+
+            if ($delivery === 'test') {
+                $this->client->sendTest($campaign['id'], $testEmails);
             }
         } catch (RequestException $e) {
             return SendResult::failure(
@@ -151,9 +172,11 @@ class MailchimpChannel implements Channel
 
         return SendResult::success(
             $this->key(),
-            $delivery === 'send'
-                ? "Sent Mailchimp campaign for \"{$subject}\"."
-                : "Created Mailchimp draft campaign for \"{$subject}\".",
+            match ($delivery) {
+                'send' => "Sent Mailchimp campaign for \"{$subject}\".",
+                'test' => 'Sent a Mailchimp test of "'.$subject.'" to '.implode(', ', $testEmails).'.',
+                default => "Created Mailchimp draft campaign for \"{$subject}\".",
+            },
             $entry,
             ['campaign_id' => $campaign['id'], 'web_id' => $campaign['web_id'] ?? null],
         );
@@ -208,7 +231,7 @@ class MailchimpChannel implements Channel
     {
         $delivery = $options['mailchimp_delivery'] ?? null;
 
-        if (in_array($delivery, ['draft', 'send', 'schedule'], true)) {
+        if (in_array($delivery, ['draft', 'test', 'send', 'schedule'], true)) {
             return $delivery;
         }
 
@@ -217,6 +240,18 @@ class MailchimpChannel implements Channel
         }
 
         return ($this->config['send_immediately'] ?? false) ? 'send' : 'draft';
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<int, string>
+     */
+    protected function testEmails(array $options): array
+    {
+        return array_values(array_filter(array_map(
+            'trim',
+            explode(',', (string) ($options['mailchimp_test_emails'] ?? '')),
+        )));
     }
 
     /**

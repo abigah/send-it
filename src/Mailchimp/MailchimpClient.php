@@ -123,6 +123,21 @@ class MailchimpClient
             ->throw();
     }
 
+    /**
+     * Send a test of a campaign to the given addresses.
+     *
+     * @param  array<int, string>  $emails
+     */
+    public function sendTest(string $campaignId, array $emails): void
+    {
+        $this->request()
+            ->post("/campaigns/{$campaignId}/actions/test", [
+                'test_emails' => array_values($emails),
+                'send_type' => 'html',
+            ])
+            ->throw();
+    }
+
     protected function request(): PendingRequest
     {
         if (! $this->serverPrefix) {

@@ -79,6 +79,19 @@ class MailchimpClientTest extends TestCase
         });
     }
 
+    public function test_it_sends_a_campaign_test(): void
+    {
+        Http::fake([
+            '*/campaigns/abc/actions/test' => Http::response(null, 204),
+        ]);
+
+        $this->client()->sendTest('abc', ['mike@example.com', 'ann@example.com']);
+
+        Http::assertSent(fn ($request) => $request->url() === 'https://us3.api.mailchimp.com/3.0/campaigns/abc/actions/test'
+            && $request['test_emails'] === ['mike@example.com', 'ann@example.com']
+            && $request['send_type'] === 'html');
+    }
+
     public function test_it_lists_audience_tags(): void
     {
         Http::fake([
