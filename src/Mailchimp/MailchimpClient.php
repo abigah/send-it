@@ -24,6 +24,9 @@ class MailchimpClient
     /**
      * Create a regular campaign and return the API response.
      *
+     * Campaigns made through the API don't pick up the audience's default
+     * sender, so a missing from_name or reply_to is filled in from it.
+     *
      * @param  array<string, mixed>  $settings  Mailchimp campaign settings.
      * @param  array<string, mixed>  $segmentOpts  Optional segment_opts to
      *                                             target a tag/segment within
@@ -38,14 +41,38 @@ class MailchimpClient
             $recipients['segment_opts'] = $segmentOpts;
         }
 
+        $settings = array_filter($settings, fn ($value) => $value !== null && $value !== '');
+
+        if (! isset($settings['from_name'], $settings['reply_to'])) {
+            $defaults = $this->campaignDefaults($audienceId);
+
+            $settings += array_filter([
+                'from_name' => $defaults['from_name'] ?? null,
+                'reply_to' => $defaults['from_email'] ?? null,
+            ]);
+        }
+
         return $this->request()
             ->post('/campaigns', [
                 'type' => 'regular',
                 'recipients' => $recipients,
-                'settings' => array_filter($settings, fn ($value) => $value !== null && $value !== ''),
+                'settings' => $settings,
             ])
             ->throw()
             ->json();
+    }
+
+    /**
+     * The audience's default sender, as set in Mailchimp.
+     *
+     * @return array<string, mixed>
+     */
+    public function campaignDefaults(string $audienceId): array
+    {
+        return $this->request()
+            ->get("/lists/{$audienceId}", ['fields' => 'campaign_defaults'])
+            ->throw()
+            ->json('campaign_defaults') ?? [];
     }
 
     /**
