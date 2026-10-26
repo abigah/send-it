@@ -15,6 +15,8 @@ use Abigah\SendIt\Scheduling\ScheduleStore;
 use Abigah\SendIt\Support\EmailRenderer;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Contracts\Container\Container;
+use Statamic\Facades\CP\Nav;
+use Statamic\Facades\Permission;
 use Statamic\Providers\AddonServiceProvider;
 
 class ServiceProvider extends AddonServiceProvider
@@ -25,6 +27,10 @@ class ServiceProvider extends AddonServiceProvider
 
     protected $commands = [
         RunScheduledSends::class,
+    ];
+
+    protected $routes = [
+        'cp' => __DIR__.'/../routes/cp.php',
     ];
 
     public function register()
@@ -71,6 +77,19 @@ class ServiceProvider extends AddonServiceProvider
     public function bootAddon()
     {
         $this->loadViewsFrom(__DIR__.'/../resources/views', 'send-it');
+
+        Permission::extend(function () {
+            Permission::group('send_it', 'Send It', function () {
+                Permission::register('view send it')->label(__('View Send It'));
+            });
+        });
+
+        Nav::extend(function ($nav) {
+            $nav->tools('Send It')
+                ->route('send-it.index')
+                ->icon('megaphone')
+                ->can('view send it');
+        });
 
         if (config('send-it.channels.apns.enabled') && config('send-it.channels.apns.devices.route')) {
             $this->loadRoutesFrom(__DIR__.'/../routes/push.php');

@@ -162,6 +162,13 @@ Scheduling runs on the Laravel side, not Mailchimp's native scheduler:
 Because the campaign is built when the scheduler fires, it always uses the
 entry's latest content.
 
+### Control panel
+
+**Tools → Send It** shows which channels are ready, the number of registered
+push devices, upcoming scheduled sends and how recent ones went. Super users
+see it automatically; give other roles the **View Send It** permission. The
+page uses Statamic 6's control panel components.
+
 ## Email layout
 
 Channel content is wrapped in an Antlers email layout before sending — a
