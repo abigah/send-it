@@ -41,6 +41,20 @@ class PushDevicesTest extends TestCase
         require __DIR__.'/../routes/push.php';
     }
 
+    public function test_a_device_can_carry_a_first_name(): void
+    {
+        $token = str_repeat('CD', 32);
+
+        $this->postJson('api/push/devices', ['token' => $token, 'first_name' => ' Mike '])->assertCreated();
+        $this->assertSame('Mike', $this->devices()->all()[strtolower($token)]['first_name']);
+
+        // Clearing the name in the app clears it here too.
+        $this->postJson('api/push/devices', ['token' => $token, 'first_name' => ''])->assertOk();
+        $this->assertNull($this->devices()->all()[strtolower($token)]['first_name']);
+
+        $this->postJson('api/push/devices', ['token' => $token, 'first_name' => str_repeat('a', 51)])->assertUnprocessable();
+    }
+
     public function test_an_app_can_register_its_device_token(): void
     {
         $token = str_repeat('AB', 32);

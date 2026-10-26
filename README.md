@@ -134,6 +134,10 @@ name and defaults) whenever the from name or reply-to is blank.
 For Mailchimp, choose a **Delivery** mode:
 
 - **Save as draft** (default) — create the campaign in Mailchimp for review.
+- **Send a test** — create a draft campaign titled "Test: …" and send
+  Mailchimp's test email to the addresses in **Send test to**. Recipients don't
+  need to be on the audience or have Mailchimp access. Mailchimp limits how
+  many tests an account can send per day.
 - **Send immediately** — send as soon as the action runs.
 - **Schedule for later** — pick a date and time; the send happens then.
 
@@ -161,6 +165,13 @@ Scheduling runs on the Laravel side, not Mailchimp's native scheduler:
 
 Because the campaign is built when the scheduler fires, it always uses the
 entry's latest content.
+
+### Control panel
+
+**Tools → Send It** shows which channels are ready, the number of registered
+push devices, upcoming scheduled sends and how recent ones went. Super users
+see it automatically; give other roles the **View Send It** permission. The
+page uses Statamic 6's control panel components.
 
 ## Email layout
 
@@ -214,7 +225,7 @@ churn in git.
 
 **Registering devices.** Apps register by POSTing JSON to `/api/push/devices`
 (`token`, plus optional `platform`, `environment` (`sandbox` or `production`),
-`app_version`, `locale` and `timezone`). To unregister, send
+`app_version`, `locale`, `timezone` and `first_name`). To unregister, send
 `DELETE /api/push/devices/{token}`. The route is throttled. Change or disable it
 with `send-it.channels.apns.devices.route`.
 
