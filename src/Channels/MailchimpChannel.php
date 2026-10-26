@@ -67,7 +67,7 @@ class MailchimpChannel implements Channel
                 ],
                 'placeholder' => 'Choose an option…',
                 'clearable' => true,
-                'validate' => 'required',
+                'validate' => 'required_if:channel,mailchimp',
                 'if' => ['channel' => 'equals mailchimp'],
             ],
             'mailchimp_tag' => [
@@ -86,7 +86,7 @@ class MailchimpChannel implements Channel
                     .(config('app.timezone') ?: 'UTC').'). The entry is published automatically at this time.',
                 'mode' => 'single',
                 'time_enabled' => true,
-                'validate' => 'required_if:mailchimp_delivery,schedule',
+                'validate' => ['exclude_unless:channel,mailchimp', 'required_if:mailchimp_delivery,schedule'],
                 'if' => [
                     'channel' => 'equals mailchimp',
                     'mailchimp_delivery' => 'equals schedule',

@@ -82,7 +82,7 @@ class ApnsChannel implements Channel
                 ],
                 'placeholder' => 'Choose an option…',
                 'clearable' => true,
-                'validate' => 'required',
+                'validate' => 'required_if:channel,apns',
                 'if' => ['channel' => 'equals apns'],
             ],
             'apns_test_token' => [
@@ -98,7 +98,7 @@ class ApnsChannel implements Channel
                     .(config('app.timezone') ?: 'UTC').'). The entry is published automatically at this time.',
                 'mode' => 'single',
                 'time_enabled' => true,
-                'validate' => 'required_if:apns_delivery,schedule',
+                'validate' => ['exclude_unless:channel,apns', 'required_if:apns_delivery,schedule'],
                 'if' => ['channel' => 'equals apns', 'apns_delivery' => 'equals schedule'],
             ],
         ];
